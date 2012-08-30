@@ -8,6 +8,10 @@ def is_dir(entry):
     return type(entry) is dict
 
 
+def is_link(entry):
+    return type(entry) is list
+
+
 def sanitize(path):
     """
     Clean up path arguments for use with MockFS

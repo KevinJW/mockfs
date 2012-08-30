@@ -151,6 +151,128 @@ class MockFSTestCase(unittest.TestCase):
         self.assertTrue(os.path.isdir('/foo/bar'))
         self.assertTrue(os.path.isdir('/foo/bar/baz'))
 
+    def test_os_readlink_does_not_exist(self):
+        self.assertFalse(os.path.exists('/not_exist'))
+        self.assertRaises(OSError, os.readlink, '/not_exist')
+
+    def test_os_readlink(self):
+        filesystem = {
+            '/link': ['destination'],
+            'destination': ''
+        }
+        self.mfs.add_entries(filesystem)
+        self.assertTrue(os.path.exists('/link'))
+        self.assertEqual(os.readlink('/link'), 'destination')
+        values = os.listdir('/')
+        self.assertEqual(values, ['destination', 'link'])
+        values = os.listdir('.')
+        self.assertEqual(values, ['destination', 'link'])
+
+    def test_symlink_to_directory(self):
+        filesystem = {
+            '/link': ['dir'],
+            '/dir/file': ''
+        }
+        self.mfs.add_entries(filesystem)
+        self.assertTrue(os.path.isdir('/dir'))
+        self.assertTrue(os.path.exists('/link'))
+        self.assertEqual(os.readlink('/link'), 'dir')
+        self.assertTrue(os.path.islink('/link'))
+        self.assertEqual(os.path.realpath('/link'), '/dir')
+        self.assertEqual(os.path.realpath('/link/file'), '/dir/file')
+        self.assertTrue(os.path.isdir('/link'))
+        self.assertTrue(os.path.isfile('/link/file'))
+        values = os.listdir('.')
+        self.assertEqual(values, ['dir', 'link'])
+        os.chdir('/link')
+        self.assertEqual(os.getcwd(), '/dir')
+        values = os.listdir('.')
+        self.assertEqual(values, ['file'])
+        values = os.listdir(os.getcwd())
+        self.assertEqual(values, ['file'])
+        values = glob.glob('*')
+        self.assertEqual(values, ['file'])
+
+    def test_os_symlink(self):
+        filesystem = {
+            '/dir/file': ''
+        }
+        self.mfs.add_entries(filesystem)
+        self.assertTrue(os.path.isdir('/dir'))
+        self.assertFalse(os.path.exists('/link'))
+
+        os.symlink('dir/file', '/link')
+
+        self.assertTrue(os.path.exists('/link'))
+        self.assertEqual(os.readlink('/link'), 'dir/file')
+        self.assertTrue(os.path.islink('/link'))
+        self.assertEqual(os.path.realpath('/link'), '/dir/file')
+        self.assertTrue(os.path.isfile('/link'))
+
+    def test_os_symlink_create_dangling_link(self):
+        filesystem = {
+            '/file': ''
+        }
+        self.mfs.add_entries(filesystem)
+        self.assertEqual(os.listdir('/'), ['file'])
+
+        os.symlink('contents', '/link')
+
+        self.assertTrue(os.path.lexists('/link'))
+        self.assertFalse(os.path.exists('/link'))
+        self.assertEqual(os.readlink('/link'), 'contents')
+        self.assertTrue(os.path.islink('/link'))
+        self.assertEqual(os.path.realpath('/link'), '/contents')
+        self.assertFalse(os.path.isfile('/link'))
+
+    def test_os_symlink_fails_non_existing_dir(self):
+        filesystem = {
+            'file': ''
+        }
+        self.mfs.add_entries(filesystem)
+        self.assertRaises(OSError, os.symlink, 'anything', 'file')
+        self.assertRaises(OSError, os.symlink, 'file', 'not-a-dir/link')
+
+    def test_symlink_to_file(self):
+        filesystem = {
+            '/link': ['dir/file'],
+            '/dir/file': ''
+        }
+        self.mfs.add_entries(filesystem)
+        self.assertTrue(os.path.isdir('/dir'))
+        self.assertTrue(os.path.exists('/link'))
+        self.assertEqual(os.readlink('/link'), 'dir/file')
+        self.assertTrue(os.path.islink('/link'))
+        self.assertEqual(os.path.realpath('/link'), '/dir/file')
+        self.assertTrue(os.path.isfile('/link'))
+
+    def test_dangling_symlink(self):
+        filesystem = {
+            '/link-to-file': ['file'],
+            '/link-to-inside-dir': ['dir/file'],
+            '/dir': {}
+        }
+        self.mfs.add_entries(filesystem)
+        self.assertEqual(os.path.realpath('/link-to-file'), '/file')
+        self.assertEqual(os.path.realpath('/link-to-inside-dir'), '/dir/file')
+        self.assertTrue(os.path.isdir('/dir'))
+        self.assertTrue(os.path.islink('/link-to-file'))
+        self.assertTrue(os.path.islink('/link-to-inside-dir'))
+        self.assertTrue(os.path.lexists('/link-to-file'))
+        self.assertTrue(os.path.lexists('/link-to-inside-dir'))
+        self.assertFalse(os.path.exists('/link-to-file'))
+        self.assertFalse(os.path.exists('/link-to-inside-dir'))
+        
+    def test_os_readlink_not_a_link(self):
+        self._mkfs()
+        self.assertTrue(os.path.isdir('/a'))
+        self.assertFalse(os.path.islink('/a'))
+        self.assertRaises(OSError, os.readlink, '/a')
+        
+        self.assertTrue(os.path.isfile('/a/a/b'))
+        self.assertFalse(os.path.islink('/a/a/b'))
+        self.assertRaises(OSError, os.readlink, '/a/a/b')
+
     def test_glob_head(self):
         self._mkfs()
         values = glob.glob('/*/a/a')

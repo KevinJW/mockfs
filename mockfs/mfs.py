@@ -17,6 +17,7 @@ builtins = {
         'os.getcwdu': os.getcwdu,
         'os.path.abspath': os.path.abspath,
         'os.path.exists': os.path.exists,
+        'os.path.lexists': os.path.lexists,
         'os.path.getsize': os.path.getsize,
         'os.path.islink': os.path.islink,
         'os.path.isdir': os.path.isdir,
@@ -24,8 +25,10 @@ builtins = {
         'os.walk': os.walk,
         'os.listdir': os.listdir,
         'os.makedirs': os.makedirs,
+        'os.readlink': os.readlink,
         'os.remove': os.remove,
         'os.rmdir': os.rmdir,
+        'os.symlink': os.symlink,
         'glob.glob': glob.glob,
         'shutil.rmtree': shutil.rmtree,
 }
@@ -64,6 +67,20 @@ class MockFS(object):
 
         """
         path = self.abspath(path)
+#        dirname = os.path.dirname(path)
+#        dirname = os.path.realpath(dirname)
+#        basename = os.path.basename(path)
+#        return self.lexists(os.path.join(dirname, basename))
+        return self.lexists(os.path.realpath(path))
+
+    def lexists(self, path):
+        """
+        Return True if path exists
+
+        Implements the :func:`os.path.lexists` interface.
+
+        """
+        path = self.abspath(path)
         dirent = self._direntry(os.path.dirname(path))
         if path == '/':
             return bool(dirent)
@@ -83,6 +100,7 @@ class MockFS(object):
         Implements the :func:`os.path.isdir` interface.
 
         """
+        path = os.path.realpath(path)
         return util.is_dir(self._direntry(path))
 
     def isfile(self, path):
@@ -92,18 +110,17 @@ class MockFS(object):
         Implements the :func:`os.path.isfile` interface.
 
         """
+        path = os.path.realpath(path)
         return util.is_file(self._direntry(path))
 
     def islink(self, path):
         """
         Return True if path is a symlink
 
-        .. note::
-
-            Currently hard-wired to return False
+        Implements the :func:`os.path.islink` interface.
 
         """
-        return False
+        return util.is_link(self._direntry(path))
 
     def makedirs(self, path):
         """Create directory entries for a path"""
@@ -126,7 +143,8 @@ class MockFS(object):
         :param path: filesystem path
 
         """
-        direntry = self._direntry(path)
+        real_path = os.path.realpath(path)
+        direntry = self._direntry(real_path)
         if direntry is None:
             raise _OSError(errno.ENOENT, path)
         if util.is_file(direntry):
@@ -161,6 +179,35 @@ class MockFS(object):
             inspect = dirstack
             if not inspect:
                 raise StopIteration
+
+    def readlink(self, path):
+        """
+        return the contents of a symbolic link
+        
+        Implements the :func:`os.readlink` interface.
+        
+        """
+        path = self.abspath(path)
+        dirname = os.path.dirname(path)
+        basename = os.path.basename(path)
+        entry = self._direntry(dirname)
+        if not self.islink(path):
+            raise _OSError(errno.EINVAL, path)
+        
+        return entry[basename][0]
+
+    def symlink(self, src, dst):
+        dst = self.abspath(dst)
+        dirname = os.path.dirname(dst)
+        if not self.lexists(dirname):
+            raise _OSError(errno.ENOENT, dirname)
+        if not self.isdir(dirname):
+            raise _OSError(errno.ENOTDIR, dirname)
+        if self.lexists(dst):
+            raise _OSError(errno.EEXIST, dst)
+        entry = self._direntry(dirname)
+        basename = os.path.basename(dst)
+        entry[basename] = [src]
 
     def remove(self, fspath):
         """Remove the entry for a file path
@@ -364,7 +411,8 @@ class Cwd(object):
         else:
             cdpath = os.path.join(self._cwd, path)
 
-        entry = self._mfs._direntry(path)
+        cdpath = os.path.realpath(cdpath)
+        entry = self._mfs._direntry(cdpath)
         if entry is None:
             raise _OSError(errno.ENOENT, path)
         elif not util.is_dir(entry):
