@@ -71,6 +71,26 @@ class MockFSTestCase(unittest.TestCase):
         self.assertTrue(os.path.exists('///just////another////////pythonista'))
         self.assertTrue(os.path.isfile('///just////another////////pythonista'))
 
+    def test_os_mkdir(self):
+        filesystem = {
+            '/file': ''
+        }
+        self.mfs.add_entries(filesystem)
+        self.assertEqual(os.listdir('/'), ['file'])
+
+        os.mkdir('directory')
+
+        self.assertTrue(os.path.lexists('/directory'))
+        self.assertTrue(os.path.exists('/directory'))
+        self.assertTrue(os.path.isdir('/directory'))
+        self.assertEqual(os.listdir('/directory'), [])
+
+        os.mkdir('directory/nested')
+        self.assertTrue(os.path.isdir('/directory/nested'))
+ 
+        os.rmdir('/directory/nested')
+        self.assertEqual(os.listdir('/directory'), [])
+
     def test_os_remove(self):
         filesystem = {
             '/a/a': '',

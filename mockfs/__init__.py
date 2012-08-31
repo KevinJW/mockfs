@@ -47,6 +47,7 @@ def install(entries=None):
     os.path.isfile = mfs.isfile
     os.walk = mfs.walk
     os.listdir = mfs.listdir
+    os.mkdir = mfs.mkdir
     os.makedirs = mfs.makedirs
     os.readlink = mfs.readlink
     os.remove = mfs.remove

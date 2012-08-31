@@ -24,6 +24,7 @@ builtins = {
         'os.path.isfile': os.path.isfile,
         'os.walk': os.walk,
         'os.listdir': os.listdir,
+        'os.mkdir': os.mkdir,
         'os.makedirs': os.makedirs,
         'os.readlink': os.readlink,
         'os.remove': os.remove,
@@ -67,10 +68,6 @@ class MockFS(object):
 
         """
         path = self.abspath(path)
-#        dirname = os.path.dirname(path)
-#        dirname = os.path.realpath(dirname)
-#        basename = os.path.basename(path)
-#        return self.lexists(os.path.join(dirname, basename))
         return self.lexists(os.path.realpath(path))
 
     def lexists(self, path):
@@ -122,9 +119,28 @@ class MockFS(object):
         """
         return util.is_link(self._direntry(path))
 
-    def makedirs(self, path):
+    def mkdir(self, path, mode=0777):
+        """
+        
+        Implements the :func:`os.mkdir` interface.
+
+        """
+        path = self.abspath(path)
+        dirname = os.path.dirname(path)
+        if not self.lexists(dirname):
+            raise _OSError(errno.ENOENT, dirname)
+        if not self.isdir(dirname):
+            raise _OSError(errno.ENOTDIR, dirname)
+        if self.lexists(path):
+            raise _OSError(errno.EEXIST, path)
+        entry = self._direntry(dirname)
+        basename = os.path.basename(path)
+        entry[basename] = {}
+        
+    def makedirs(self, path, mode=0777):
         """Create directory entries for a path"""
         path = self.abspath(path)
+        path = os.path.realpath(path)
         new_entries = util.build_nested_dir_dict(path)
         util.merge_dicts(new_entries, self._entries)
 
