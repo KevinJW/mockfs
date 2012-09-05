@@ -243,7 +243,7 @@ class MockFS(object):
         except KeyError:
             raise _OSError(errno.ENOENT, path)
 
-        if not util.is_file(fsentry):
+        if util.is_dir(fsentry):
             raise _OSError(errno.EPERM, path)
 
         del entry[basename]

@@ -121,6 +121,15 @@ class MockFSTestCase(unittest.TestCase):
         }
         self.mfs.add_entries(filesystem)
         self.assertRaises(OSError, os.remove, '/a/does-not-exist')
+ 
+    def test_os_remove_symlink(self):
+        filesystem = {
+            '/link': ['file'],
+            'file': ''
+        }
+        self.mfs.add_entries(filesystem)
+        os.remove('/link')
+        self.assertEqual(os.listdir('/'), ['file'])
 
     def test_os_remove_dir(self):
         self._mkfs()
