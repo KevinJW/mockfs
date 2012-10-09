@@ -4,11 +4,12 @@ import shutil
 
 from mockfs.mfs import MockFS
 from mockfs.mfs import builtins
+from mockfs import storage
 
-__version__ = '0.8.0'
+__version__ = '0.9.0'
 
 
-def install(entries=None):
+def setup(entries=None):
     """
     Replace builtin functions with mockfs.
 
@@ -20,14 +21,14 @@ def install(entries=None):
         import os
         import mockfs
 
-        fs = mockfs.install()
+        fs = mockfs.setup()
         fs.add_entries({
                 '/bin/sh': 'contents',
                 '/bin/ls': 'contents',
         ])
         assert(os.listdir('/bin') == ['ls', 'sh'])
 
-        mockfs.uninstall()
+        mockfs.teardown()
 
     """
     mfs = MockFS()
@@ -35,9 +36,12 @@ def install(entries=None):
         mfs.add_entries(entries)
 
     # Install functions
+    glob.glob = mfs.glob
     os.chdir = mfs.cwd.chdir
     os.getcwd = mfs.cwd.getcwd
     os.getcwdu = mfs.cwd.getcwdu
+    os.listdir = mfs.listdir
+    os.makedirs = mfs.makedirs
     os.path.abspath = mfs.abspath
     os.path.exists = mfs.exists
     os.path.lexists = mfs.lexists
@@ -45,7 +49,6 @@ def install(entries=None):
     os.path.islink = mfs.islink
     os.path.isdir = mfs.isdir
     os.path.isfile = mfs.isfile
-    os.walk = mfs.walk
     os.listdir = mfs.listdir
     os.mkdir = mfs.mkdir
     os.makedirs = mfs.makedirs
@@ -53,13 +56,18 @@ def install(entries=None):
     os.remove = mfs.remove
     os.rmdir = mfs.rmdir
     os.symlink = mfs.symlink
+    os.unlink = mfs.remove
+    os.walk = mfs.walk
     glob.glob = mfs.glob
     shutil.rmtree = mfs.rmtree
+
+    storage.backend = mfs.backend
+    storage.replace_builtins()
 
     return mfs
 
 
-def uninstall():
+def teardown():
     """Restore the original builtin functions."""
     for k, v in builtins.items():
         mod, func = k.rsplit('.', 1) # 'os.path.isdir' -> ('os.path', 'isdir')
@@ -69,3 +77,5 @@ def uninstall():
         for elt in name_elts:
             module = getattr(module, elt)
         setattr(module, func, v)
+
+    storage.restore_builtins()
